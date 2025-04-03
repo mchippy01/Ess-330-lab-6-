@@ -48,7 +48,11 @@ ggplot(data = camels, aes(x = gauge_lon, y = gauge_lat)) +
   ggthemes::theme_map()
 ```
 
-zero_q_freq represents frequency of days with Q = 0 mm/day (%), where Q= flow.
+##Question 1
+
+zero_q_freq represents frequency of days with Q = 0 mm/day (%), where Q= discharge (mm/day).
+
+Demo–\>
 
 ```{r}
 camels |> 
@@ -251,6 +255,10 @@ wf <- workflow_set(list(rec), list(lm_model, rf_model)) %>%
 autoplot(wf)
 ```
 
+Demo –\^
+
+##Question 2
+
 ```{r}
 map_1 <- ggplot(camels, aes(x = gauge_lon, y = gauge_lat)) +
   borders("state", colour = "gray50") +
@@ -286,9 +294,9 @@ library(patchwork)
 map_1 + map_2
 ```
 
-Question 3
+##Question 3
 
-define additonal models
+Define additional models
 
 ```{r}
 
@@ -339,6 +347,8 @@ mlp_data <- camels_test %>%
 
 ```
 
+Evaluate metrics
+
 ```{r}
 model_metrics <- bind_rows(
   metrics(lm_data, truth = logQmean, estimate = .pred) %>% mutate(model = "Linear"),
@@ -350,6 +360,8 @@ model_metrics <- bind_rows(
 print(model_metrics)
 
 ```
+
+Visualize XGB
 
 ```{r}
 xgb_preds <- camels_test %>%
@@ -368,6 +380,8 @@ ggplot(xgb_preds, aes(x = logQmean, y = .pred, color = aridity)) +
 
 ```
 
+Visualize MLP
+
 ```{r}
 mlp_preds <- camels_test %>%
   mutate(.pred = predict(mlp_wf, .)$.pred)
@@ -385,20 +399,21 @@ ggplot(mlp_preds, aes(x = logQmean, y = .pred, color = aridity)) +
 
 ```
 
-For modeling this data, I would chose the Bagged MLp model as it preforms the best. It has the lowest RMSE and MAE, which indicates better accuracy. It also has the highest R\^2 which indicated better correlations.
+For modeling this data, I would chose the Bagged MLP model as it preforms the best. It has the lowest RMSE and MAE, which indicates better accuracy. It also has the highest R\^2 which indicated better correlations.
 
-Question 4
+##Question 4
 
 ```{r}
 # Set seed for reproducibility
 set.seed(1102)
 
+#removing NAs 
 camels |> 
   select(slope_mean, p_mean, logQmean) |> 
   drop_na() |> 
   cor()
 
-# Initial train/test split (75% train, 25% test)
+# Initial train/test split
 split <- initial_split(camels, prop = 0.75)
 camels_train <- training(split)
 camels_test  <- testing(split)
@@ -406,7 +421,7 @@ camels_test  <- testing(split)
 # Create 10-fold cross-validation
 cv_folds <- vfold_cv(camels_train, v = 10)
 
-# Define your recipe
+# Defining my recipe
 rec2 <- recipe(logQmean ~ p_mean + slope_mean  , data = camels_train) %>%
   step_log(all_predictors())%>%
   step_interact(terms = ~ p_mean:slope_mean) %>%
@@ -418,16 +433,22 @@ rec2 <- recipe(logQmean ~ p_mean + slope_mean  , data = camels_train) %>%
 For this formula I chose slope_mean and p_mean. Slope_mean is the mean slope of the catchment. I assumed this would impact discharge because the water is more likely to run off and down the catchment due to gravity, and I suspect that all other variables held constant, and area with a greater slope would have greater daily discharge. I also chose p_mean which is mean daily precipitation, which would influence discharge because more water in the area means more area in the river/stream. I chose to add these together because greater values of each variable would compound into greater discharge.
 
 ```{r}
+#Bake Data
 baked_data2 <- prep(rec2, camels_train) %>%
   bake(new_data = NULL)
 
-
+#linear model
 lm_base2 <- lm(logQmean ~ p_mean * slope_mean, data = baked_data2)
 summary(lm_base2)
 
 ```
 
+I could not find variables with an R\^2 \>0.9, but this once is high and about the closest I found
+
+Define Models
+
 ```{r}
+
 xgb_model2 <- boost_tree() %>%
   set_engine("xgboost") %>%
   set_mode("regression")
@@ -489,7 +510,7 @@ xgb_res <- fit_resamples(
 
 ```
 
-Rank Results
+Create workflow set
 
 ```{r}
 # Create a workflow set
@@ -507,20 +528,24 @@ model_set_res <- model_set %>%
   workflow_map("tune_grid", resamples = cv_folds)
 ```
 
+Rank results
+
 ```{r}
 # Rank based on RMSE
-rank_results(model_set_res, rank_metric = "rsq")
+rank_results(model_set_res, rank_metric = "rmse")
 
 
 ```
+
+Plot results
 
 ```{r}
 autoplot(model_set_res)
 ```
 
-The model that I think is best is the Random Forest, as it has the lowest RMSE, indicatinf best prediction accuracy on average. it also has the highest R\^2 and a low standard error, which indicates that this model explains the most variance in streamflow, nad is also relatively stable across the 10 reseamples.
+The model that I think is best is the Random Forest, as it has the lowest RMSE, indicating best prediction accuracy on average. it also has the highest R\^2 and a low standard error, which indicates that this model explains the most variance in streamflow, nad is also relatively stable across the 10 reseamples.
 
-**Exact and evaluate**
+Extract and evaluate
 
 ```{r}
 final_rf_workflow <- workflow() %>%
@@ -528,22 +553,22 @@ final_rf_workflow <- workflow() %>%
   add_model(rf_model2)
 
 final_rf_fit <- final_rf_workflow %>%
-  fit(data = camels)
+  fit(data = camels_train)
 
 rf_predictions <- augment(final_rf_fit, new_data = camels_test)
 
 ggplot(rf_predictions, aes(x = .pred, y = logQmean)) + 
-  geom_point(aes(color = .pred), alpha = 0.7) +
+  geom_point(aes(color = slope_mean ), alpha = 0.7) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
   labs(
     title = "Observed vs. Predicted Mean Streamflow",
-    x = "Predicted Streamflow",
-    y = "Observed Streamflow",
-    color = "Prediction"
+    x = "Predicted Streamflow (logQmean)",
+    y = "Observed Streamflow (logQmean)",
+    color = "Mean Slope (m/km)"
   ) +
   scale_color_viridis_c() +
   theme_minimal()
 
 ```
 
-hods;h
+In these results I see that where the stream flow is low, it is harder to predict based on my defined variables. This makes sense because I know that when streams or areas are dry, any precipitation can cause them to become "flashy". Where the stream flow is positive, the observed and predicted stream flow are much closer together and the fit seems good. I can also see that there is a good trend in slope and flow, where more slope creates more observed streamlow, as I predicted.
