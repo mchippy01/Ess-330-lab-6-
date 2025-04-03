@@ -4811,7 +4811,7 @@ vertical-align: -.125em;
 ✖ dplyr::lag()      masks stats::lag()
 ✖ yardstick::spec() masks readr::spec()
 ✖ recipes::step()   masks stats::step()
-• Use suppressPackageStartupMessages() to eliminate package startup messages</code></pre>
+• Use tidymodels_prefer() to resolve common conflicts.</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(powerjoin)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glue)</span>
@@ -4859,7 +4859,8 @@ The following object is masked from &#39;package:utils&#39;:
 </div>
 </div>
 </div>
-<p>##Question 1</p>
+<section id="question-1" class="level1">
+<h1>Question 1</h1>
 <p>zero_q_freq represents frequency of days with Q = 0 mm/day (%), where Q= discharge (mm/day).</p>
 <p>Demo–&gt;</p>
 <div class="cell">
@@ -5196,6 +5197,7 @@ aridity:p_mean  0.1048449 0.07198145   1.456555 1.458304e-01</code></pre>
 </div>
 </div>
 <p>Demo –^</p>
+</section>
 <section id="question-2" class="level1">
 <h1>Question 2</h1>
 <div class="cell">

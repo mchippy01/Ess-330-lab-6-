@@ -48,7 +48,7 @@ ggplot(data = camels, aes(x = gauge_lon, y = gauge_lat)) +
   ggthemes::theme_map()
 ```
 
-##Question 1
+# Question 1
 
 zero_q_freq represents frequency of days with Q = 0 mm/day (%), where Q= discharge (mm/day).
 
