@@ -4811,7 +4811,7 @@ vertical-align: -.125em;
 ✖ dplyr::lag()      masks stats::lag()
 ✖ yardstick::spec() masks readr::spec()
 ✖ recipes::step()   masks stats::step()
-• Use tidymodels_prefer() to resolve common conflicts.</code></pre>
+• Use suppressPackageStartupMessages() to eliminate package startup messages</code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(powerjoin)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glue)</span>
@@ -5196,7 +5196,8 @@ aridity:p_mean  0.1048449 0.07198145   1.456555 1.458304e-01</code></pre>
 </div>
 </div>
 <p>Demo –^</p>
-<p>##Question 2</p>
+<section id="question-2" class="level1">
+<h1>Question 2</h1>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>map_1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(camels, <span class="fu">aes</span>(<span class="at">x =</span> gauge_lon, <span class="at">y =</span> gauge_lat)) <span class="sc">+</span></span>
 <span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">borders</span>(<span class="st">&quot;state&quot;</span>, <span class="at">colour =</span> <span class="st">&quot;gray50&quot;</span>) <span class="sc">+</span></span>
@@ -5234,7 +5235,9 @@ aridity:p_mean  0.1048449 0.07198145   1.456555 1.458304e-01</code></pre>
 </div>
 </div>
 </div>
-<p>##Question 3</p>
+</section>
+<section id="question-3" class="level1">
+<h1>Question 3</h1>
 <p>Define additional models</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="co"># XGBoost</span></span>
@@ -5351,7 +5354,9 @@ aridity:p_mean  0.1048449 0.07198145   1.456555 1.458304e-01</code></pre>
 </div>
 </div>
 <p>For modeling this data, I would chose the Bagged MLP model as it preforms the best. It has the lowest RMSE and MAE, which indicates better accuracy. It also has the highest R^2 which indicated better correlations.</p>
-<p>##Question 4</p>
+</section>
+<section id="question-4" class="level1">
+<h1>Question 4</h1>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set seed for reproducibility</span></span>
 <span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1102</span>)</span>
@@ -5546,6 +5551,7 @@ F-statistic: 853.6 on 3 and 498 DF,  p-value: &lt; 2.2e-16</code></pre>
 <p>In these results I see that where the stream flow is low, it is harder to predict based on my defined variables. This makes sense because I know that when streams or areas are dry, any precipitation can cause them to become “flashy”. Where the stream flow is positive, the observed and predicted stream flow are much closer together and the fit seems good. I can also see that there is a good trend in slope and flow, where more slope creates more observed streamlow, as I predicted.</p>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

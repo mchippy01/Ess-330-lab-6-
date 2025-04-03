@@ -48,11 +48,15 @@ ggplot(data = camels, aes(x = gauge_lon, y = gauge_lat)) +
   ggthemes::theme_map()
 ```
 
+
+
 ##Question 1
 
 zero_q_freq represents frequency of days with Q = 0 mm/day (%), where Q= discharge (mm/day).
 
 Demo–\>
+
+
 
 ```{r}
 camels |> 
@@ -255,9 +259,13 @@ wf <- workflow_set(list(rec), list(lm_model, rf_model)) %>%
 autoplot(wf)
 ```
 
+
+
 Demo –\^
 
 # Question 2
+
+
 
 ```{r}
 map_1 <- ggplot(camels, aes(x = gauge_lon, y = gauge_lat)) +
@@ -294,9 +302,13 @@ library(patchwork)
 map_1 + map_2
 ```
 
+
+
 # Question 3
 
 Define additional models
+
+
 
 ```{r}
 
@@ -312,7 +324,11 @@ mlp_model <- bag_mlp() %>%
 
 ```
 
+
+
 Create workflows
+
+
 
 ```{r}
 
@@ -329,7 +345,11 @@ mlp_wf <- workflow() %>%
   fit(data = camels_train)
 ```
 
+
+
 Predictions
+
+
 
 ```{r}
 # Predict and add to test set
@@ -347,7 +367,11 @@ mlp_data <- camels_test %>%
 
 ```
 
+
+
 Evaluate metrics
+
+
 
 ```{r}
 model_metrics <- bind_rows(
@@ -361,7 +385,11 @@ print(model_metrics)
 
 ```
 
+
+
 Visualize XGB
+
+
 
 ```{r}
 xgb_preds <- camels_test %>%
@@ -380,7 +408,11 @@ ggplot(xgb_preds, aes(x = logQmean, y = .pred, color = aridity)) +
 
 ```
 
+
+
 Visualize MLP
+
+
 
 ```{r}
 mlp_preds <- camels_test %>%
@@ -399,9 +431,13 @@ ggplot(mlp_preds, aes(x = logQmean, y = .pred, color = aridity)) +
 
 ```
 
+
+
 For modeling this data, I would chose the Bagged MLP model as it preforms the best. It has the lowest RMSE and MAE, which indicates better accuracy. It also has the highest R\^2 which indicated better correlations.
 
 # Question 4
+
+
 
 ```{r}
 # Set seed for reproducibility
@@ -430,7 +466,11 @@ rec2 <- recipe(logQmean ~ p_mean + slope_mean  , data = camels_train) %>%
 
 ```
 
+
+
 For this formula I chose slope_mean and p_mean. Slope_mean is the mean slope of the catchment. I assumed this would impact discharge because the water is more likely to run off and down the catchment due to gravity, and I suspect that all other variables held constant, and area with a greater slope would have greater daily discharge. I also chose p_mean which is mean daily precipitation, which would influence discharge because more water in the area means more area in the river/stream. I chose to add these together because greater values of each variable would compound into greater discharge.
+
+
 
 ```{r}
 #Bake Data
@@ -443,9 +483,13 @@ summary(lm_base2)
 
 ```
 
+
+
 I could not find variables with an R\^2 \>0.9, but this once is high and about the closest I found
 
 Define Models
+
+
 
 ```{r}
 
@@ -463,7 +507,11 @@ lm_model2 <- linear_reg() %>%
 
 ```
 
+
+
 Creating workflow
+
+
 
 ```{r}
 # Linear regression workflow
@@ -484,7 +532,11 @@ xgb_workflow <- workflow() %>%
 
 ```
 
+
+
 Fit to resamples
+
+
 
 ```{r}
 # Fit linear model
@@ -510,7 +562,11 @@ xgb_res <- fit_resamples(
 
 ```
 
+
+
 Create workflow set
+
+
 
 ```{r}
 # Create a workflow set
@@ -528,7 +584,11 @@ model_set_res <- model_set %>%
   workflow_map("tune_grid", resamples = cv_folds)
 ```
 
+
+
 Rank results
+
+
 
 ```{r}
 # Rank based on RMSE
@@ -537,15 +597,23 @@ rank_results(model_set_res, rank_metric = "rmse")
 
 ```
 
+
+
 Plot results
+
+
 
 ```{r}
 autoplot(model_set_res)
 ```
 
+
+
 The model that I think is best is the Random Forest, as it has the lowest RMSE, indicating best prediction accuracy on average. it also has the highest R\^2 and a low standard error, which indicates that this model explains the most variance in streamflow, nad is also relatively stable across the 10 reseamples.
 
 Extract and evaluate
+
+
 
 ```{r}
 final_rf_workflow <- workflow() %>%
@@ -571,4 +639,7 @@ ggplot(rf_predictions, aes(x = .pred, y = logQmean)) +
 
 ```
 
+
+
 In these results I see that where the stream flow is low, it is harder to predict based on my defined variables. This makes sense because I know that when streams or areas are dry, any precipitation can cause them to become "flashy". Where the stream flow is positive, the observed and predicted stream flow are much closer together and the fit seems good. I can also see that there is a good trend in slope and flow, where more slope creates more observed streamlow, as I predicted.
+
