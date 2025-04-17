@@ -1,0 +1,426 @@
+---
+title: " ESS 330 lab 8"
+author: "Chippy Marx"
+date: "2025-04-01"
+format: html
+execute:
+  echo: true
+---
+
+
+
+**Libraries**
+
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(powerjoin)
+library(glue)
+library(vip)
+library(baguette)
+library(ggplot2)
+library(rsample)
+```
+
+
+
+**Load data**
+
+
+
+```{r}
+root  <- 'https://gdex.ucar.edu/dataset/camels/file'
+download.file('https://gdex.ucar.edu/dataset/camels/file/camels_attributes_v2.0.pdf', 
+              'data/camels_attributes_v2.0.pdf')
+ 
+types <- c("clim", "geol", "soil", "topo", "vege", "hydro")
+# Where the files live online ...
+remote_files  <- glue('{root}/camels_{types}.txt')
+# where we want to download the data ...
+local_files   <- glue('data/camels_{types}.txt')
+walk2(remote_files, local_files, download.file, quiet = TRUE)
+# Read and merge data
+camels <- map(local_files, read_delim, show_col_types = FALSE) 
+
+camels <- power_full_join(camels ,by = 'gauge_id')
+```
+
+
+
+**Clean data**
+
+
+
+```{r}
+visdat::vis_dat(camels)
+skimr::skim(camels)
+camels <- camels %>%
+  drop_na()
+
+
+```
+
+
+
+**Split data**
+
+
+
+```{r}
+set.seed(123)
+camels <- camels |> 
+  mutate(logQmean = log(q_mean))
+camels_split <- initial_split(camels, prop = 0.8)
+camels_train <- training(camels_split)
+camels_test  <- testing(camels_split)
+ 
+#Build resamples 
+camels_cv <- vfold_cv(camels_train, v = 10)
+```
+
+
+
+# Feature Engineering 
+
+**Define recipe**
+
+
+
+```{r}
+
+rec2 <- recipe(logQmean ~ p_mean + slope_mean  , data = camels_train) %>%
+  step_log(all_predictors())%>%
+  step_interact(terms = ~ p_mean:slope_mean) %>%
+  step_naomit(all_predictors(), all_outcomes())      
+
+#Bake Data
+baked_data2 <- prep(rec2, camels_train) %>%
+  bake(new_data = NULL)
+
+
+```
+
+
+
+**Define models**
+
+
+
+```{r}
+xgb_model2 <- boost_tree() %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+rf_model2 <- rand_forest() %>%
+  set_engine("ranger") %>%
+  set_mode("regression")
+
+mlp_model <- bag_mlp() %>%
+  set_engine("nnet") %>%
+  set_mode("regression")
+```
+
+
+
+**Define workflows**
+
+
+
+```{r}
+# Random forest workflow
+rf_workflow <- workflow() %>%
+  add_recipe(rec2) %>%
+  add_model(rf_model2)
+
+# XGBoost workflow
+xgb_workflow <- workflow() %>%
+  add_recipe(rec2) %>%
+  add_model(xgb_model2)
+
+# Bagged MLP Neural Net
+mlp_workflow <- workflow() %>%
+  add_recipe(rec2) %>%
+  add_model(mlp_model) %>%
+  fit(data = camels_train)
+
+
+```
+
+
+
+**Test models**
+
+
+
+```{r}
+my_metrics <- metric_set(rmse, rsq, mae)
+
+wf_set <- workflow_set(
+  preproc = list(my_recipe = rec2),
+  models = list(
+    xgboost = xgb_model2,
+    random_forest = rf_model2,
+    Bagged_Mlp = mlp_model
+  )
+)
+wf_results <- wf_set %>%
+  workflow_map(
+    "fit_resamples",
+    resamples = camels_cv,
+    metrics = my_metrics,
+    control = control_resamples(save_pred = TRUE)
+  )
+
+autoplot(wf_results)
+
+
+
+
+```
+
+
+
+*For modeling this data, I would chose the Bagged MLP model as it preforms the best. It has the lowest RMSE and MAE, which indicates better accuracy. It also has the highest R\^2 which indicated better correlations.*
+
+# **Tune model**
+
+**Define tunable model**
+
+
+
+```{r}
+#MLP
+mlp_tune_model <- bag_mlp(
+  hidden_units = tune(), #controls model complexity 
+  penalty = tune() #prevents overfitting         
+) %>%
+  set_engine("nnet") %>%
+  set_mode("regression")
+
+
+```
+
+
+
+**Create workflow**
+
+
+
+```{r}
+mlp_workflow <- workflow() %>%
+  add_recipe(rec2) %>%
+  add_model(mlp_tune_model)
+
+```
+
+
+
+**Check tuneable values/ ranges**
+
+
+
+```{r}
+dials <- extract_parameter_set_dials(mlp_workflow)
+dials$object
+
+
+```
+
+
+
+**Define the search grid**
+
+
+
+```{r}
+my.grid <- grid_latin_hypercube(
+  hidden_units(),
+  penalty(),
+  size = 25
+)
+
+print(my.grid)
+
+
+```
+
+
+
+# Tune the model
+
+
+
+```{r}
+model_params <- tune_grid(
+  mlp_workflow,          
+  resamples = camels_cv,     
+  grid = my.grid,        
+  metrics = my_metrics, 
+  control = control_grid(save_pred = TRUE)
+)
+```
+
+
+
+**Visualize the results of tuning**
+
+
+
+```{r}
+autoplot(model_params)
+```
+
+
+
+*Based on the results, the best models had around 4 to 7 hidden units and a moderate penalty value (between -5 and -2 on the log scale), which is to be expected. Models with too few or too many hidden units didn’t perform as well, and the same was true for penalties that were too small or too large. The best combinations (models with values within the parameters described above) gave me the **l**owest prediction error (MAE and RMSE) and the highest R², meaning they made more accurate predictions and explained more of the variation in the data. This shows that tuning both parameters helped me find a strong model that balances learning the data well without overfitting.*
+
+**Check model skill**
+
+
+
+```{r}
+metrics_tbl <- collect_metrics(model_params)
+print(metrics_tbl)
+
+```
+
+```{r}
+metrics_tbl <- collect_metrics(model_params)
+print(metrics_tbl)
+```
+
+
+
+\
+
+
+
+```{r}
+collect_metrics(model_params) %>%
+  filter(.metric == "mae") %>%
+  arrange(mean)
+
+show_best(model_params, metric = "mae", n = 5)
+
+
+```
+
+
+
+The best model has 10 hidden units and a penalty value of \~0.0068.\
+This configuration produces the lowest average MAE, meaning it makes the smallest absolute errors across all folds.
+
+
+
+```{r}
+hp_best <- select_best(model_params, metric = "mae")
+
+```
+
+
+
+My computer is running really slow and some code isn't running or showing the green arrow so that's why there's some duplicate ode. It wont even let me delete the old stuff.
+
+
+
+```{r}
+hp_best <- select_best(model_params, metric = "mae")
+```
+
+
+
+# Finalize your model
+
+
+
+```{r}
+final_mlp_workflow <- finalize_workflow(
+  mlp_workflow,
+  hp_best
+)
+
+```
+
+
+
+**Final Model Verification**
+
+
+
+```{r}
+final_mlp_last <- last_fit(
+  final_mlp_workflow,   
+  split = camels_split)
+
+collect_metrics(final_mlp_last)
+final_fit_full <- fit
+
+final_preds <- collect_predictions(final_mlp_last)
+
+final_fit_full <- fit(final_mlp_workflow, data = camels)
+
+```
+
+```{r}
+names(final_preds)
+
+```
+
+
+
+**Plot predicted vs. actual**
+
+
+
+```{r}
+
+
+ggplot(final_preds, aes(x = .pred, y = logQmean)) +
+  geom_point(color = "steelblue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "darkred") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +
+  labs(
+    title = "Predicted vs Actual Values",
+    x = "Predicted",
+    y = "Actual"
+  ) +
+  theme_minimal()
+
+
+```
+
+
+
+# Building a map
+
+
+
+```{r}
+ 
+predictions_all <- augment(final_fit_full, new_data = camels)
+
+predictions_all <- predictions_all %>%
+  mutate(residual = (logQmean - .pred)^2) 
+
+pred_map <- ggplot(predictions_all, aes(x = gauge_lon, y = gauge_lat, color = .pred)) +
+  geom_point(size = 2) +
+  scale_color_viridis_c(name = "Predicted") +
+  labs(title = "Predicted logQmean") +
+  coord_fixed() +
+  theme_minimal()
+
+resid_map <- ggplot(predictions_all, aes(x = gauge_lon, y = gauge_lat, color = residual)) +
+  geom_point(size = 2) +
+  scale_color_viridis_c(name = "Residual (squared)") +
+  labs(title = "Squared Residuals") +
+  coord_fixed() +
+  theme_minimal()
+library(patchwork)
+
+pred_map + resid_map
+
+
+```
+
